@@ -4,8 +4,8 @@
   "plugins": [
     {
       "name": "wallpaper",
-      "desc": "桌面壁纸背景：给客户端加渐变背景层，支持自定义颜色和透明度，带设置页",
-      "version": "1.0.0",
+      "desc": "桌面壁纸背景：6个渐变预设/本地上传/图片URL，可调透明度/遮罩/毛玻璃，带设置页",
+      "version": "2.0.0",
       "author": "limingyi2",
       "tags": ["UI增强", "主题与外观"],
       "path": "plugins/wallpaper",
