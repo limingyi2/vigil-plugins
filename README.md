@@ -1,54 +1,28 @@
 # Vigil 插件市场
 
-私人插件仓库，用于 Vigil 客户端的插件分发。
+此公共 Git 仓库提供 `market.json`、插件源码目录和可安装制品。Vigil Brain 默认从
+`https://github.com/limingyi2/vigil-plugins.git` 克隆清单仓库至其持久化配置目录；插件包
+通过市场条目的 HTTPS URL 下载并使用 SHA-256 校验。
 
 ## 仓库结构
 
+```text
+market.json
+plugins/<插件名>/
+  manifest.json
+  version.json
+  __init__.py
+  frontend.js
+  frontend.css
+  README.md
+  <插件名>-<版本>.zip
 ```
-vigil-plugins/
-├── market.json              # 插件清单（客户端拉取这个文件获取插件列表）
-├── README.md                # 本文件
-└── plugins/
-    └── <插件名>/
-        ├── __init__.py      # 后端逻辑（必填）
-        ├── frontend.js      # 前端代码（可选）
-        ├── frontend.css     # 前端样式（可选）
-        └── README.md        # 插件说明文档
-```
 
-## 怎么上传新插件
+## 制品约定
 
-1. 按《Vigil插件开发指南》写好插件
-2. 把插件目录放进 `plugins/<插件名>/`
-3. 在 `market.json` 的 `plugins` 数组里加一条：
-   ```json
-   {
-     "name": "插件名",
-     "desc": "一句话描述",
-     "version": "1.0.0",
-     "author": "作者名",
-     "tags": ["标签1", "标签2"],
-     "path": "plugins/插件名",
-     "readme": "plugins/插件名/README.md",
-     "has_frontend": true
-   }
-   ```
-4. `git add . && git commit -m "add: 新插件" && git push`
-5. 客户端点「刷新市场」就能看到
+每条市场记录必须与 `manifest.json` 的版本、协议和权限一致，并声明稳定可访问的 HTTPS
+制品 URL 与 ZIP 的 SHA-256。Manifest 为允许字段的严格 JSON 对象，包含入口、依赖、权限
+和所有包文件的逐项 SHA-256。包不包含壁纸素材、用户配置、缓存或其他插件数据。
 
-## 怎么更新插件
-
-1. 修改插件文件
-2. 更新 `market.json` 里对应插件的 `version` 字段
-3. commit + push
-4. 客户端会检测到版本变化，提示更新
-
-## 可用标签
-
-- `UI增强` - 界面相关
-- `主题与外观` - 主题、壁纸、样式
-- `会话与消息` - 聊天、消息处理
-- `记忆` - 记忆、知识库
-- `工具` - 工具调用、本地操控
-- `效率` - 生产力、自动化
-- `其他` - 不属于以上分类
+安装前会校验制品摘要、Manifest、协议兼容性、权限白名单、文件路径及文件摘要，再由 Brain
+通用静态插件检查器和事务安装。请在发布前审阅源码并验证制品与清单完全一致。

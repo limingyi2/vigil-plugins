@@ -1,0 +1,43 @@
+{
+  "schema": "vigil.brain-plugin/v1",
+  "name": "wallpaper",
+  "version": "3.0.0",
+  "entry": "__init__.py",
+  "frontend": {
+    "script": "frontend.js",
+    "style": "frontend.css"
+  },
+  "feature": "wallpaper",
+  "protocol": {
+    "name": "vigil-brain-plugin",
+    "major": 1
+  },
+  "permissions": [
+    "wallpaper.workshop.read",
+    "wallpaper.config.write",
+    "wallpaper.media.read"
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "5c0f419b6861208873dad0e9578615c37a6325aa109d4ef4cbb9e0b3a0611a11"
+    },
+    {
+      "path": "__init__.py",
+      "sha256": "bd60d6cdaeb5fdbf2e506fba7054d08c2408e04c4dce1dd40083f4b683cea6ed"
+    },
+    {
+      "path": "frontend.css",
+      "sha256": "513cbe6838f31c6f505b56967ddcd8cfb9233dac64fa680a2353dbcdd52f55ab"
+    },
+    {
+      "path": "frontend.js",
+      "sha256": "dd3a718a530e5a05e1084a47381b66dab4769db6330784c3a25e404c2ff960d9"
+    },
+    {
+      "path": "version.json",
+      "sha256": "e98a4f98dc651ed31ffc590e14f7d87ce3553763ef1c3082025da11c599c9534"
+    }
+  ],
+  "dependencies": []
+}
