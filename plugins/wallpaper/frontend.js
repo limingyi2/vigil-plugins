@@ -295,7 +295,9 @@
     if (!key) return;
 
     var id = cfg.wallpaper_id;
-    var type = cfg.wallpaper_type;
+    // WE 的 project.json 里 type 有 Scene/Video 与 scene/video 两种写法，
+    // 这里按小写比较，不然大写那批会掉进"不支持的类型"只画预览图。
+    var type = String(cfg.wallpaper_type || '').toLowerCase();
     var file = cfg.wallpaper_file;
 
     if ((type === 'local-video' || type === 'local-image') && id) {

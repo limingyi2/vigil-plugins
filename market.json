@@ -1,11 +1,11 @@
 {
   "version": "1.1",
-  "updated": "2026-10-21",
+  "updated": "2026-10-22",
   "plugins": [
     {
       "name": "wallpaper",
-      "desc": "Wallpaper Engine 壁纸接入：创意工坊扫描、视频/网页播放，场景壁纸由 WebWallGL 实时渲染（非静态预览图），带透明度/遮罩/毛玻璃/场景适配与帧率。",
-      "version": "3.2.1",
+      "desc": "Wallpaper Engine 壁纸接入：创意工坊扫描、视频/网页播放，场景壁纸由 WebWallGL 实时渲染（非静态预览图），带透明度/遮罩/毛玻璃/场景适配与帧率。3.2.2 修正 WE 项目类型大小写（Scene/Video）被当成未知类型、只剩预览图的缺陷。",
+      "version": "3.2.2",
       "author": "limingyi2",
       "tags": [
         "Wallpaper Engine",

@@ -6,7 +6,7 @@ wallpaper 插件 —— 接入 Wallpaper Engine (Steam)
 支持类型：
   - video : <video> 直接播放
   - web   : <iframe sandbox> 加载 index.html
-  - scene : 提取预览图作为静态背景（不做实时 WebGL 渲染）
+  - scene : 交给 WebWallGL 渲染页实时出画（scene.pkg）
   - application : 不支持（需要运行外部程序）
 
 API:
@@ -25,7 +25,7 @@ from pathlib import Path
 
 # ── 插件元信息 ──────────────────────────────────────────────
 NAME = "wallpaper"
-VERSION = "3.2.1"
+VERSION = "3.2.2"
 DESC = "Wallpaper Engine 壁纸接入：视频/网页播放与 WebWallGL 实时 Scene 渲染"
 FEATURE = "wallpaper"
 
@@ -37,7 +37,12 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 def _load_config():
     try:
         if CONFIG_FILE.exists():
-            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            # 旧版本把 WE 的 "Scene"/"Video" 原样写进了配置，读出来先归一，
+            # 否则前端按小写比较会把它当成不支持的类型、只画预览图。
+            if cfg.get("wallpaper_type"):
+                cfg["wallpaper_type"] = str(cfg["wallpaper_type"]).strip().lower()
+            return cfg
     except Exception:
         pass
     return {
@@ -57,6 +62,8 @@ def _load_config():
 
 def _save_config(cfg):
     try:
+        if cfg.get("wallpaper_type"):
+            cfg["wallpaper_type"] = str(cfg["wallpaper_type"]).strip().lower()
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
                                encoding="utf-8")
@@ -148,7 +155,13 @@ def _scan_library(force=False):
             cache = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
             import time
             if time.time() - cache.get("ts", 0) < CACHE_TTL:
-                return cache.get("wallpapers", []), cache.get("we_path")
+                items = cache.get("wallpapers", []) or []
+                # 旧版本不归一 type，扫出来的 "Scene"/"Video" 那批主文件是空的。
+                # 见到这种结果就作废重扫，别让过期格式在缓存里活一个小时。
+                stale = any((w.get("type") or "") != str(w.get("type") or "").strip().lower()
+                            for w in items)
+                if not stale:
+                    return items, cache.get("we_path")
         except Exception:
             pass
 
@@ -175,7 +188,9 @@ def _scan_library(force=False):
                 try:
                     data = json.loads(proj.read_text(encoding="utf-8", errors="ignore"))
                     title = data.get("title") or wid
-                    wtype = data.get("type") or "unknown"
+                    # WE 的 project.json 把 Scene/Video 写成首字母大写，
+                    # 也有小写写法；统一成小写，下面按 type 找主文件才认得出。
+                    wtype = str(data.get("type") or "unknown").strip().lower()
                     rating = data.get("contentrating") or "Everyone"
                     for cand in ["preview.jpg", "preview.gif", "preview.png"]:
                         if (sub / cand).exists():
