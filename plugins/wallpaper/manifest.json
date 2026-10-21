@@ -20,11 +20,11 @@
   "files": [
     {
       "path": "README.md",
-      "sha256": "44777eb70b697d96514d3eb16d265bc5dbf0987e4bb4133cbff553dc38dc5464"
+      "sha256": "ea82252ef22d7b2c9570ffc37e3dd180999d9cb8ff58e0de1f2ca9afa9be11c7"
     },
     {
       "path": "__init__.py",
-      "sha256": "1ce6222d00efd06aa4392568e607af0dc1981bb976d63570876137627ab45031"
+      "sha256": "34e16bd8f175c531fb752c6e8d588f26aa4116a1db950db1bd34e0b65d646fee"
     },
     {
       "path": "frontend.css",
@@ -32,11 +32,11 @@
     },
     {
       "path": "frontend.js",
-      "sha256": "71720e8ce7eb1f8367c549440d9646792e1c2bed46d17f89e7a9eb828c6b3591"
+      "sha256": "063e8a364e5f22285f469493a2374dbbb3ae1af2f006fe7ca0a16b9457681668"
     },
     {
       "path": "version.json",
-      "sha256": "337585ffeca5d08108c549ca9fd361f61ac5d811a63fe32e43cbb5b4cc2c77f0"
+      "sha256": "419f6321d707df386cfaabae82fe0921fdd97eea3ede8158786fd1c417585c80"
     }
   ],
   "dependencies": []
