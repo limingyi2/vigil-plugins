@@ -4,8 +4,8 @@
   "plugins": [
     {
       "name": "wallpaper",
-      "desc": "Wallpaper Engine 壁纸：视频、网页与 WebWallGL 实时 Scene 渲染。",
-      "version": "3.1.0",
+      "desc": "Wallpaper Engine 与用户导入媒体：WebWallGL 动态 Scene、图片和视频。",
+      "version": "3.2.0",
       "author": "limingyi2",
       "tags": [
         "Wallpaper Engine",
