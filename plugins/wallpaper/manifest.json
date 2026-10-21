@@ -20,23 +20,23 @@
   "files": [
     {
       "path": "README.md",
-      "sha256": "c84812c93d2b82c56ecb170ae426878a73cbfc661e22caee8507afd8406a5b46"
+      "sha256": "aede59cebc383ad70c54ebdc58c3159e94944c71e57ea2d6ea3bf93166d9d93c"
     },
     {
       "path": "__init__.py",
-      "sha256": "8ff993c6c5f15b68e11996f274c7561d4deea91f55cd3ed4a6ca93b64e06ebef"
+      "sha256": "534483fcbfb8f253fbf4121c6ab0ffbc9e0c819d8a36757e57b43596b7078756"
     },
     {
       "path": "frontend.css",
-      "sha256": "ae876a04fc343d2dd35db4beb706d829f100a0aeef773334986d6cc018506528"
+      "sha256": "88b30a19bd72a56e0d8682a6e86c92f3285e5e25e75ba4858ae86c37b52594d1"
     },
     {
       "path": "frontend.js",
-      "sha256": "cf8381a37cef750cf3dd49f7a9a23a3f1d94a890fbdd6d75965a95f574754314"
+      "sha256": "d50fcde7e6a8a240b7300bb0cfde9bec19bd9be869325a0ca872eb488883d03f"
     },
     {
       "path": "version.json",
-      "sha256": "5c41ca5ec76949a1fecb0afeb52e6fa6aa2294fdcdb3cf034ff27270d7357e32"
+      "sha256": "c0cdde82345170734b5e8f604c71d0b7c62d581db42449d0d6c614f5a0f27f1b"
     }
   ],
   "dependencies": []
