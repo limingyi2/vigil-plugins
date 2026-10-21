@@ -25,8 +25,8 @@ from pathlib import Path
 
 # ── 插件元信息 ──────────────────────────────────────────────
 NAME = "wallpaper"
-VERSION = "3.0.0"
-DESC = "Wallpaper Engine 壁纸接入：扫描 Steam 创意工坊，把视频/网页/场景壁纸渲染到客户端背景"
+VERSION = "3.2.1"
+DESC = "Wallpaper Engine 壁纸接入：视频/网页播放与 WebWallGL 实时 Scene 渲染"
 FEATURE = "wallpaper"
 
 # ── 配置持久化 ──────────────────────────────────────────────
@@ -48,7 +48,9 @@ def _load_config():
         "opacity": 0.7,             # 壁纸层不透明度 0-1
         "scrim": 0.4,               # 遮罩不透明度 0-1
         "blur": 0,                  # 毛玻璃模糊 px
-        "muted": True,              # 视频是否静音
+        "muted": True,              # 视频/场景是否静音
+        "sceneFit": "cover",        # 场景适配：cover / contain
+        "sceneFps": 30,             # 场景渲染帧率：15 / 30 / 60
         "we_path": None,            # 手动指定 WE 创意工坊路径（None=自动探测）
     }
 
@@ -334,13 +336,25 @@ def api_config_get(body, query):
 
 
 def api_config_post(body, query):
-    """POST 保存配置"""
+    """POST 保存配置。
+
+    键名不设白名单：设置项是随前端一起长的，白名单会让新加的项被静默丢弃
+    （用户看到的现象是"改了不生效"，极难查）。这里只保证值是标量、长度有界。
+    """
     cfg = _load_config()
     if isinstance(body, dict):
-        for k in ["enabled", "wallpaper_id", "wallpaper_type", "wallpaper_file",
-                  "opacity", "scrim", "blur", "muted", "we_path"]:
-            if k in body:
-                cfg[k] = body[k]
+        for key, value in body.items():
+            if not isinstance(key, str) or not key or len(key) > 48:
+                continue
+            if key == "playlist":
+                if isinstance(value, list):
+                    # IDs are plain identifiers, never paths or executable resource URLs.
+                    cfg["playlist"] = [str(item)[:80] for item in value[:500]
+                                       if isinstance(item, (str, int))]
+                continue
+            if value is not None and not isinstance(value, (bool, int, float, str)):
+                continue
+            cfg[key] = value[:240] if isinstance(value, str) else value
     _save_config(cfg)
     return {"ok": True, "config": cfg}
 
