@@ -1,165 +1,384 @@
 # -*- coding: utf-8 -*-
-"""壁纸插件：给客户端加自定义背景层。
-
-综合 DSH 三款壁纸插件的优点：
-- 6 个内置渐变预设
-- 本地上传（PNG/JPG/GIF/WebP）
-- URL 粘贴
-- 壁纸不透明度 / 遮罩不透明度 / 面板不透明度 / 毛玻璃模糊
-- 填充方式 cover / contain
-- 亮色/暗色主题自动切换遮罩颜色
-- 配置持久化，重启不丢
-
-目录型插件：同目录下 frontend.js / frontend.css 会被客户端自动注入。
 """
+wallpaper 插件 —— 接入 Wallpaper Engine (Steam)
+把 WE 创意工坊里的壁纸渲染到 Vigil 客户端背景。
+
+支持类型：
+  - video : <video> 直接播放
+  - web   : <iframe sandbox> 加载 index.html
+  - scene : 交给 WebWallGL 渲染页实时出画（scene.pkg）
+  - application : 不支持（需要运行外部程序）
+
+API:
+  GET  /api/plugin/wallpaper/we/library       壁纸库列表（含缩略图、类型、名称）
+  GET  /api/plugin/wallpaper/we/media/<id>/<file>  代理壁纸内的媒体文件（视频/图片）
+  GET  /api/plugin/wallpaper/we/preview/<id>  壁纸预览图（优先用 WE 生成的预览图）
+  GET  /api/plugin/wallpaper/config            当前配置
+  POST /api/plugin/wallpaper/config            保存配置
+"""
+
 import json
 import os
-import uuid
+import re
+import mimetypes
+from pathlib import Path
 
+# ── 插件元信息 ──────────────────────────────────────────────
 NAME = "wallpaper"
-DESC = "桌面壁纸背景：自定义图片/渐变预设，可调透明度/遮罩/毛玻璃"
+VERSION = "3.2.2"
+DESC = "Wallpaper Engine 壁纸接入：视频/网页播放与 WebWallGL 实时 Scene 渲染"
 FEATURE = "wallpaper"
 
-# 配置和图片存储目录
-_STORE_DIR = os.path.join(os.path.expanduser("~"), ".vigil", "wallpaper")
-_CONFIG_PATH = os.path.join(_STORE_DIR, "config.json")
-_IMAGE_DIR = os.path.join(_STORE_DIR, "images")
-
-# 内置渐变预设
-PRESETS = {
-    "aurora": {"name": "极光", "css": "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)"},
-    "ocean": {"name": "海洋", "css": "linear-gradient(135deg, #2E3192 0%, #1BFFFF 100%)"},
-    "sunset": {"name": "日落", "css": "linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #ffecd2 100%)"},
-    "forest": {"name": "森林", "css": "linear-gradient(135deg, #134E5E 0%, #71B280 100%)"},
-    "night": {"name": "夜空", "css": "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)"},
-    "sakura": {"name": "樱花", "css": "linear-gradient(135deg, #ffecd2 0%, #fcb69f 50%, #ff9a9e 100%)"},
-}
-
-DEFAULT_CONFIG = {
-    "enabled": False,
-    "type": "preset",
-    "preset": "aurora",
-    "image_url": "",
-    "image_file": "",
-    "opacity": 60,
-    "scrim": 30,
-    "panel_opacity": 85,
-    "glass_blur": 12,
-    "fit": "cover",
-}
-
-
-def _ensure_dirs():
-    os.makedirs(_STORE_DIR, exist_ok=True)
-    os.makedirs(_IMAGE_DIR, exist_ok=True)
+# ── 配置持久化 ──────────────────────────────────────────────
+CONFIG_DIR = Path(os.path.expanduser("~")) / ".vigil" / "wallpaper"
+CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
 def _load_config():
-    _ensure_dirs()
-    if not os.path.isfile(_CONFIG_PATH):
-        return dict(DEFAULT_CONFIG)
     try:
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-        merged = dict(DEFAULT_CONFIG)
-        merged.update(cfg)
-        return merged
+        if CONFIG_FILE.exists():
+            cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            # 旧版本把 WE 的 "Scene"/"Video" 原样写进了配置，读出来先归一，
+            # 否则前端按小写比较会把它当成不支持的类型、只画预览图。
+            if cfg.get("wallpaper_type"):
+                cfg["wallpaper_type"] = str(cfg["wallpaper_type"]).strip().lower()
+            return cfg
     except Exception:
-        return dict(DEFAULT_CONFIG)
-
-
-def _save_config(cfg):
-    _ensure_dirs()
-    with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
-
-
-def api_get_config(body, query):
-    cfg = _load_config()
+        pass
     return {
-        "ok": True,
-        "config": cfg,
-        "presets": {k: {"name": v["name"], "css": v["css"]} for k, v in PRESETS.items()},
+        "enabled": False,
+        "wallpaper_id": None,       # 创意工坊 ID，如 "3098013340"
+        "wallpaper_type": None,     # video / web / scene
+        "wallpaper_file": None,     # 壁纸主文件名
+        "opacity": 0.7,             # 壁纸层不透明度 0-1
+        "scrim": 0.4,               # 遮罩不透明度 0-1
+        "blur": 0,                  # 毛玻璃模糊 px
+        "muted": True,              # 视频/场景是否静音
+        "sceneFit": "cover",        # 场景适配：cover / contain
+        "sceneFps": 30,             # 场景渲染帧率：15 / 30 / 60
+        "we_path": None,            # 手动指定 WE 创意工坊路径（None=自动探测）
     }
 
 
-def api_set_config(body, query):
+def _save_config(cfg):
+    try:
+        if cfg.get("wallpaper_type"):
+            cfg["wallpaper_type"] = str(cfg["wallpaper_type"]).strip().lower()
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
+                               encoding="utf-8")
+    except Exception:
+        pass
+
+
+# ── Wallpaper Engine 路径探测 ────────────────────────────────
+def _find_we_workshop():
+    """返回 WE 创意工坊目录路径，找不到返回 None。
+
+    探测顺序：
+    1. 配置里手动指定的 we_path
+    2. 注册表 HKCU/HKLM 的 Steam 路径
+    3. Steam libraryfolders.vdf 里的所有库
+    4. 常见硬编码路径
+    """
     cfg = _load_config()
-    for key in DEFAULT_CONFIG:
-        if key in body:
-            cfg[key] = body[key]
-    cfg["opacity"] = max(0, min(100, int(cfg.get("opacity", 60))))
-    cfg["scrim"] = max(0, min(95, int(cfg.get("scrim", 30))))
-    cfg["panel_opacity"] = max(0, min(100, int(cfg.get("panel_opacity", 85))))
-    cfg["glass_blur"] = max(0, min(40, int(cfg.get("glass_blur", 12))))
-    cfg["fit"] = cfg["fit"] if cfg["fit"] in ("cover", "contain") else "cover"
-    cfg["type"] = cfg["type"] if cfg["type"] in ("preset", "image", "url") else "preset"
+    if cfg.get("we_path") and Path(cfg["we_path"]).exists():
+        return cfg["we_path"]
+
+    candidates = []
+
+    # 注册表
+    try:
+        import winreg
+        for root, subkey in [
+            (winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Valve\Steam"),
+        ]:
+            try:
+                with winreg.OpenKey(root, subkey) as k:
+                    steam_path, _ = winreg.QueryValueEx(k, "SteamPath" if root == winreg.HKEY_CURRENT_USER else "InstallPath")
+                    if steam_path:
+                        candidates.append(Path(steam_path))
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    # libraryfolders.vdf（从第一个找到的 Steam 路径出发）
+    # 注意：遍历副本 list(candidates)，否则循环内 append 会导致无限增长
+    for steam in list(candidates):
+        vdf = steam / "steamapps" / "libraryfolders.vdf"
+        if vdf.exists():
+            try:
+                text = vdf.read_text(encoding="utf-8", errors="ignore")
+                for m in re.finditer(r'"path"\s+"([^"]+)"', text):
+                    p = m.group(1).replace("\\\\", "\\").replace("\\", os.sep)
+                    candidates.append(Path(p))
+            except Exception:
+                pass
+
+    # 常见路径
+    for p in [
+        r"C:\Program Files (x86)\Steam",
+        r"D:\Steam", r"E:\Steam", r"F:\Steam",
+        r"D:\SteamLibrary", r"E:\SteamLibrary", r"F:\SteamLibrary",
+    ]:
+        candidates.append(Path(p))
+
+    # 检查每个候选下的创意工坊目录
+    seen = set()
+    for c in candidates:
+        if not c or str(c) in seen:
+            continue
+        seen.add(str(c))
+        workshop = c / "steamapps" / "workshop" / "content" / "431960"
+        if workshop.exists():
+            return str(workshop)
+
+    return None
+
+
+# ── 壁纸库扫描（带缓存）──────────────────────────────────────
+CACHE_FILE = CONFIG_DIR / "library_cache.json"
+CACHE_TTL = 3600  # 缓存 1 小时
+
+
+def _scan_library(force=False):
+    """扫描 WE 创意工坊，返回壁纸列表。带磁盘缓存，避免每次都扫 100+ 目录。
+
+    每个壁纸项：id, title, type, preview, file, rating
+    """
+    # 读缓存
+    if not force and CACHE_FILE.exists():
+        try:
+            cache = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+            import time
+            if time.time() - cache.get("ts", 0) < CACHE_TTL:
+                items = cache.get("wallpapers", []) or []
+                # 旧版本不归一 type，扫出来的 "Scene"/"Video" 那批主文件是空的。
+                # 见到这种结果就作废重扫，别让过期格式在缓存里活一个小时。
+                stale = any((w.get("type") or "") != str(w.get("type") or "").strip().lower()
+                            for w in items)
+                if not stale:
+                    return items, cache.get("we_path")
+        except Exception:
+            pass
+
+    workshop = _find_we_workshop()
+    if not workshop:
+        return [], None
+
+    wp_dir = Path(workshop)
+    wallpapers = []
+
+    try:
+        for sub in sorted(wp_dir.iterdir()):
+            if not sub.is_dir():
+                continue
+            wid = sub.name
+            proj = sub / "project.json"
+            title = wid
+            wtype = "unknown"
+            preview = None
+            main_file = None
+            rating = "Everyone"
+
+            if proj.exists():
+                try:
+                    data = json.loads(proj.read_text(encoding="utf-8", errors="ignore"))
+                    title = data.get("title") or wid
+                    # WE 的 project.json 把 Scene/Video 写成首字母大写，
+                    # 也有小写写法；统一成小写，下面按 type 找主文件才认得出。
+                    wtype = str(data.get("type") or "unknown").strip().lower()
+                    rating = data.get("contentrating") or "Everyone"
+                    for cand in ["preview.jpg", "preview.gif", "preview.png"]:
+                        if (sub / cand).exists():
+                            preview = cand
+                            break
+                    if wtype == "video":
+                        for f in sub.iterdir():
+                            if f.suffix.lower() in (".mp4", ".webm", ".mkv", ".avi"):
+                                main_file = f.name
+                                break
+                    elif wtype == "web":
+                        if (sub / "index.html").exists():
+                            main_file = "index.html"
+                    elif wtype == "scene":
+                        main_file = "scene.pkg" if (sub / "scene.pkg").exists() else None
+                except Exception:
+                    pass
+
+            if not preview:
+                for f in sub.iterdir():
+                    if f.suffix.lower() in (".jpg", ".jpeg", ".png", ".gif"):
+                        preview = f.name
+                        break
+
+            if wtype == "application":
+                continue
+
+            wallpapers.append({
+                "id": wid, "title": title, "type": wtype,
+                "preview": preview, "file": main_file, "rating": rating,
+            })
+    except Exception:
+        pass
+
+    # 写缓存
+    try:
+        import time
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        CACHE_FILE.write_text(json.dumps({
+            "ts": time.time(), "we_path": workshop, "wallpapers": wallpapers,
+        }, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+    return wallpapers, workshop
+
+
+# ── API 路由 ─────────────────────────────────────────────────
+def api_we_library(body, query):
+    """GET 壁纸库列表。
+
+    查询参数：
+      ?type=scene,web   只显示指定类型（逗号分隔）
+      ?exclude=video    排除指定类型（逗号分隔）
+      ?refresh=1        强制重新扫描（忽略缓存）
+    """
+    q = query or {}
+    force = str(q.get("refresh", "")).lower() in ("1", "true", "yes")
+    wallpapers, workshop = _scan_library(force=force)
+
+    # 类型过滤
+    type_filter = q.get("type", "").strip()
+    exclude_filter = q.get("exclude", "").strip()
+    if type_filter:
+        allowed = set(t.strip().lower() for t in type_filter.split(",") if t.strip())
+        wallpapers = [w for w in wallpapers if w["type"].lower() in allowed]
+    if exclude_filter:
+        excluded = set(t.strip().lower() for t in exclude_filter.split(",") if t.strip())
+        wallpapers = [w for w in wallpapers if w["type"].lower() not in excluded]
+
+    return {
+        "ok": True,
+        "we_path": workshop,
+        "count": len(wallpapers),
+        "wallpapers": wallpapers,
+    }
+
+
+def api_we_media(body, query):
+    """GET 代理壁纸内的媒体文件。
+
+    路径格式：/api/plugin/wallpaper/we/media/<id>/<file>
+    由 server.py 的路径解析把 <id>/<file> 放进 query 或 body。
+    这里用 query.get("id") 和 query.get("file")。
+    """
+    wid = (query or {}).get("id", "")
+    fname = (query or {}).get("file", "")
+    if not wid or not fname:
+        return {"ok": False, "err": "缺少 id 或 file", "_code": 400}
+
+    # 安全：防止路径穿越
+    if not re.fullmatch(r"\d+", str(wid)) or "\\" in fname or "\x00" in fname:
+        return {"ok": False, "err": "非法路径", "_code": 400}
+
+    workshop = _find_we_workshop()
+    if not workshop:
+        return {"ok": False, "err": "未找到 Wallpaper Engine", "_code": 404}
+
+    root = (Path(workshop) / wid).resolve()
+    fpath = (root / fname).resolve()
+    try:
+        fpath.relative_to(root)
+    except ValueError:
+        return {"ok": False, "err": "非法路径", "_code": 400}
+    if not fpath.exists() or not fpath.is_file():
+        return {"ok": False, "err": "文件不存在", "_code": 404}
+
+    # 读取文件并返回（server.py 会处理二进制响应）
+    # 这里返回特殊结构，由插件路由的调用方处理
+    mime, _ = mimetypes.guess_type(str(fpath))
+    return {
+        "__file__": str(fpath),
+        "__mime__": mime or "application/octet-stream",
+    }
+
+
+def api_we_preview(body, query):
+    """GET 壁纸预览图"""
+    wid = (query or {}).get("id", "")
+    if not re.fullmatch(r"\d+", str(wid)):
+        return {"ok": False, "err": "非法壁纸 id", "_code": 400}
+
+    workshop = _find_we_workshop()
+    if not workshop:
+        return {"ok": False, "err": "未找到 Wallpaper Engine", "_code": 404}
+
+    wdir = Path(workshop) / wid
+    if not wdir.exists():
+        return {"ok": False, "err": "壁纸不存在", "_code": 404}
+
+    # 优先 preview.jpg，然后任意图片
+    preview = None
+    for cand in ["preview.jpg", "preview.gif", "preview.png"]:
+        if (wdir / cand).exists():
+            preview = cand
+            break
+    if not preview:
+        for f in wdir.iterdir():
+            if f.suffix.lower() in (".jpg", ".jpeg", ".png", ".gif"):
+                preview = f.name
+                break
+
+    if not preview:
+        return {"ok": False, "err": "无预览图", "_code": 404}
+
+    mime, _ = mimetypes.guess_type(preview)
+    return {
+        "__file__": str(wdir / preview),
+        "__mime__": mime or "image/jpeg",
+    }
+
+
+def api_config_get(body, query):
+    """GET 当前配置"""
+    cfg = _load_config()
+    cfg["we_path"] = _find_we_workshop()
+    return {"ok": True, "config": cfg}
+
+
+def api_config_post(body, query):
+    """POST 保存配置。
+
+    键名不设白名单：设置项是随前端一起长的，白名单会让新加的项被静默丢弃
+    （用户看到的现象是"改了不生效"，极难查）。这里只保证值是标量、长度有界。
+    """
+    cfg = _load_config()
+    if isinstance(body, dict):
+        for key, value in body.items():
+            if not isinstance(key, str) or not key or len(key) > 48:
+                continue
+            if key == "playlist":
+                if isinstance(value, list):
+                    # IDs are plain identifiers, never paths or executable resource URLs.
+                    cfg["playlist"] = [str(item)[:80] for item in value[:500]
+                                       if isinstance(item, (str, int))]
+                continue
+            if value is not None and not isinstance(value, (bool, int, float, str)):
+                continue
+            cfg[key] = value[:240] if isinstance(value, str) else value
     _save_config(cfg)
     return {"ok": True, "config": cfg}
 
 
-def api_upload(body, query):
-    import base64
-    _ensure_dirs()
-    filename = body.get("filename", "")
-    data_b64 = body.get("data", "")
-    if not filename or not data_b64:
-        return {"ok": False, "err": "缺少文件名或图片数据"}
-    ext = os.path.splitext(filename)[1].lower()
-    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
-        return {"ok": False, "err": "不支持的文件类型"}
-    safe_name = uuid.uuid4().hex + ext
-    save_path = os.path.join(_IMAGE_DIR, safe_name)
-    try:
-        img_data = base64.b64decode(data_b64)
-        if len(img_data) > 10 * 1024 * 1024:
-            return {"ok": False, "err": "图片不能超过 10MB"}
-        with open(save_path, "wb") as f:
-            f.write(img_data)
-    except Exception as e:
-        return {"ok": False, "err": "保存失败：%s" % str(e)[:80]}
-    cfg = _load_config()
-    old_file = cfg.get("image_file", "")
-    if old_file:
-        old_path = os.path.join(_IMAGE_DIR, old_file)
-        if os.path.isfile(old_path):
-            try:
-                os.remove(old_path)
-            except Exception:
-                pass
-    cfg["type"] = "image"
-    cfg["image_file"] = safe_name
-    cfg["enabled"] = True
-    _save_config(cfg)
-    return {"ok": True, "image_file": safe_name, "config": cfg}
-
-
-def api_image(body, query):
-    filename = ""
-    if isinstance(query, dict):
-        v = query.get("file", [""])
-        filename = v[0] if isinstance(v, list) and v else str(v)
-    if not filename:
-        return {"ok": False, "err": "缺少文件名"}
-    safe_name = os.path.basename(filename)
-    img_path = os.path.join(_IMAGE_DIR, safe_name)
-    if not os.path.isfile(img_path):
-        return {"ok": False, "err": "图片不存在"}
-    ext = os.path.splitext(safe_name)[1].lower()
-    content_type = {
-        ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-        ".png": "image/png", ".gif": "image/gif",
-        ".webp": "image/webp",
-    }.get(ext, "application/octet-stream")
-    import base64
-    with open(img_path, "rb") as f:
-        data = f.read()
-    return {"ok": True, "content_type": content_type, "data": base64.b64encode(data).decode("ascii")}
-
-
+# ── 路由表（完整路径，精确匹配）──────────────────────────────
 ROUTES = [
-    ("GET", "/api/plugin/wallpaper/config", api_get_config),
-    ("POST", "/api/plugin/wallpaper/config", api_set_config),
-    ("POST", "/api/plugin/wallpaper/upload", api_upload),
-    ("GET", "/api/plugin/wallpaper/image", api_image),
+    ("GET",  "/api/plugin/wallpaper/we/library", api_we_library),
+    ("GET",  "/api/plugin/wallpaper/we/media",   api_we_media),    # ?id=xxx&file=xxx
+    ("GET",  "/api/plugin/wallpaper/we/preview", api_we_preview),  # ?id=xxx
+    ("GET",  "/api/plugin/wallpaper/config",     api_config_get),
+    ("POST", "/api/plugin/wallpaper/config",     api_config_post),
 ]

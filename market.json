@@ -1,16 +1,33 @@
 {
-  "version": "1.0",
-  "updated": "2026-10-10",
+  "version": "1.1",
+  "updated": "2026-10-22",
   "plugins": [
     {
       "name": "wallpaper",
-      "desc": "桌面壁纸背景：6个渐变预设/本地上传/图片URL，可调透明度/遮罩/毛玻璃，带设置页",
-      "version": "2.0.0",
+      "desc": "Wallpaper Engine 壁纸接入：创意工坊扫描、视频/网页播放，场景壁纸由 WebWallGL 实时渲染（非静态预览图），带透明度/遮罩/毛玻璃/场景适配与帧率。3.2.2 修正 WE 项目类型大小写（Scene/Video）被当成未知类型、只剩预览图的缺陷。",
+      "version": "3.2.2",
       "author": "limingyi2",
-      "tags": ["UI增强", "主题与外观"],
+      "tags": [
+        "Wallpaper Engine",
+        "主题与外观"
+      ],
       "path": "plugins/wallpaper",
       "readme": "plugins/wallpaper/README.md",
-      "has_frontend": true
+      "has_frontend": true,
+      "protocol": {
+        "name": "vigil-brain-plugin",
+        "major": 1
+      },
+      "permissions": [
+        "wallpaper.workshop.read",
+        "wallpaper.config.write",
+        "wallpaper.media.read"
+      ],
+      "artifact": {
+        "url": "https://raw.githubusercontent.com/limingyi2/vigil-plugins/98ee87d2ffb98d3dd834fd24baaa5222ec0e0fb0/plugins/wallpaper/wallpaper-3.2.2.zip",
+        "sha256": "8b3781147a8f973e918cb96bb2d021c81b50413cf976c292b083c761bbd9d2e3"
+      },
+      "updated": "2026-10-22"
     }
   ]
 }
