@@ -30,10 +30,12 @@ def build(name, ref):
                          for n, b in sorted(payload.items())]
     payload['manifest.json'] = (json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode()
     buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+    # Stored entries keep the exact package bytes reproducible across Windows/Python
+    # and Linux/Python zlib versions. Hashes in market.json must match CI rebuilds.
+    with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_STORED) as archive:
         for n, b in sorted(payload.items()):
             info = zipfile.ZipInfo(name + '/' + n, (2026, 1, 1, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
+            info.compress_type = zipfile.ZIP_STORED
             info.external_attr = 0o100644 << 16
             archive.writestr(info, b)
     package = buffer.getvalue()
