@@ -1,25 +1,7 @@
-# Vigil Wallpaper Engine 插件
+# Vigil Wallpaper Engine 插件 3.2.0
 
-本目录是 Vigil 原版 Brain 目录插件（3.0.0），直接沿用 `brain/plugins/wallpaper/` 的 Python 入口、HTTP 路由、设置格式和 renderer 前端资源。
+3.2.0 提供 WebWallGL 3.0.0 实时 Scene 渲染、受控用户图片/视频导入、按名称搜索、媒体类型筛选和持久播放列表。导入文件由 Electron 主进程复制到用户数据目录，通过短时媒体票据读取；卸载插件不会删除个人导入素材。
 
-## 功能
+Scene 脚本保持禁用（`scripts: false`），SceneScript 尚不支持。壁纸 HTML 在 sandbox iframe 中运行。Electron 保留 `contextIsolation` 和 `sandbox`；插件禁用或卸载时销毁 Scene、移除背景 DOM 与监听器并撤销媒体票据。
 
-- 自动探测 Steam 安装和所有 `libraryfolders.vdf` 创意工坊库，也允许在壁纸设置中手动指定 Workshop 目录。
-- 扫描 Wallpaper Engine 壁纸库，显示缩略图，并播放视频/网页壁纸；场景壁纸沿用原插件的预览图显示行为。
-- 保留原有配置、启用开关、选中壁纸、透明度、遮罩、模糊和静音设置；启用后在 Vigil 窗口内应用背景层及透明/毛玻璃样式。
-- API 兼容原 Brain 插件路径：`/api/plugin/wallpaper/*`。
-
-## 运行环境和数据
-
-- 依赖 Vigil Brain 的目录插件 API、Python 标准库和客户端通用插件前端 API；不需要额外 pip 包。
-- 配置与扫描缓存仍保存在用户目录 `~/.vigil/wallpaper/`，壁纸素材由 Steam/用户 Workshop 目录管理。
-- 禁用或卸载不会删除用户配置、缓存或 Workshop 素材。
-- Manifest 中的 `wallpaper.*` 权限是安装时展示及校验的能力声明；插件运行仍使用 Vigil Brain 的既有授权 API 合约。
-
-## 安装
-
-在 Vigil 插件市场安装。客户端先校验 HTTPS ZIP 制品 SHA-256，再校验本 Manifest、协议、权限白名单和全部文件 SHA-256，然后使用 Brain 通用目录插件安装事务落盘。
-
-## 版本
-
-- 3.0.0：恢复原版 Wallpaper Engine Brain 插件。
+支持 Wallpaper Engine Workshop 的视频、网页与 Scene 项目，不支持外部 `application` 壁纸。复杂 Scene 的 Shader、粒子及交互兼容性需要真实授权工程验收。
