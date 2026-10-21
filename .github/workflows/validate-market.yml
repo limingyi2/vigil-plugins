@@ -13,4 +13,4 @@ jobs:
       - name: Rebuild from committed source and check the published manifest and ZIP
         run: |
           python tools/package_plugin.py wallpaper HEAD
-          git diff --exit-code -- market.json plugins/wallpaper/manifest.json plugins/wallpaper/wallpaper-3.0.1.zip
+          git diff --exit-code -- market.json plugins/wallpaper/
