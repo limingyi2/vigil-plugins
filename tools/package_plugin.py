@@ -35,6 +35,9 @@ def build(name, ref):
     with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_STORED) as archive:
         for n, b in sorted(payload.items()):
             info = zipfile.ZipInfo(name + '/' + n, (2026, 1, 1, 0, 0, 0))
+            info.create_system = 3
+            info.create_version = 20
+            info.extract_version = 20
             info.compress_type = zipfile.ZIP_STORED
             info.external_attr = 0o100644 << 16
             archive.writestr(info, b)
