@@ -5,7 +5,7 @@
     {
       "name": "wallpaper",
       "desc": "Wallpaper Engine 与用户导入媒体：WebWallGL 动态 Scene、图片和视频。",
-      "version": "3.2.0",
+      "version": "3.2.1",
       "author": "limingyi2",
       "tags": [
         "Wallpaper Engine",
