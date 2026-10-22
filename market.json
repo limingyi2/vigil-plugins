@@ -4,8 +4,8 @@
   "plugins": [
     {
       "name": "wallpaper",
-      "desc": "Wallpaper Engine 壁纸接入：创意工坊扫描、视频/网页播放，场景壁纸由 WebWallGL 实时渲染（非静态预览图），带透明度/遮罩/毛玻璃/场景适配与帧率。3.2.2 修正 WE 项目类型大小写（Scene/Video）被当成未知类型、只剩预览图的缺陷。",
-      "version": "3.2.2",
+      "desc": "独立 Wallpaper Engine 插件：Scene 实时 WebGL、粒子与 Shader、视频、网页、透明背景、毛玻璃和 Vigil 聊天界面适配。渲染器随插件发布，不依赖 DSH 内核。",
+      "version": "4.0.0",
       "author": "limingyi2",
       "tags": [
         "Wallpaper Engine",
@@ -24,8 +24,8 @@
         "wallpaper.media.read"
       ],
       "artifact": {
-        "url": "https://raw.githubusercontent.com/limingyi2/vigil-plugins/98ee87d2ffb98d3dd834fd24baaa5222ec0e0fb0/plugins/wallpaper/wallpaper-3.2.2.zip",
-        "sha256": "8b3781147a8f973e918cb96bb2d021c81b50413cf976c292b083c761bbd9d2e3"
+        "url": "https://raw.githubusercontent.com/limingyi2/vigil-plugins/main/plugins/wallpaper/wallpaper-4.0.0.zip",
+        "sha256": ""
       },
       "updated": "2026-10-22"
     }

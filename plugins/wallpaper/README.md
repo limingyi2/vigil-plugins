@@ -1,29 +1,19 @@
-# Vigil Wallpaper Engine 插件
+# Vigil Wallpaper v4
 
-Vigil 的 Brain 目录插件：把本机 Wallpaper Engine 创意工坊里的壁纸渲染到客户端背景。
+独立的 Vigil Wallpaper Engine 插件。渲染器随插件发布，不依赖 DSH 内核或 Vigil 客户端里的旧 Wallpaper 实现。
 
-## 功能
+## 支持能力
 
-- 自动探测 Steam 安装和所有 `libraryfolders.vdf` 创意工坊库，也可以在设置里手动指定 Workshop 目录。
-- 扫描创意工坊壁纸库（含缩略图、类型、内容分级），播放视频壁纸、以沙箱 iframe 挂载网页壁纸。
-- **场景壁纸实时渲染**：用 WebWallGL 在独立渲染页里真正跑场景动画（粒子、puppet 骨骼、音频反应），不是静态预览图。渲染页由客户端本地只读服务提供，壁纸数据经不透明票据从 Brain 取，插件本身不落地任何壁纸文件。
-- 场景渲染起不来时**明确降级**：显示预览图 + 原因 + 「重新加载场景」，不静默黑屏。
-- 透明度、遮罩、毛玻璃、静音、场景适配（cover/contain）、场景帧率（15/30/60）。
+- Wallpaper Engine `Scene`：实时 WebGL 场景渲染，保留粒子、Shader、骨骼/动画、透明背景和高清 DPR 适配（受 Chromium/WebGL 能力限制）。
+- `Video`、`Web`、图片和 GIF 壁纸；网页在沙箱 iframe 中运行，并提供 Wallpaper Engine 兼容 shim。
+- Vigil 聊天界面的侧栏、消息区、输入框和设置页透明化适配，支持遮罩、毛玻璃、适配方式、静音和帧率控制。
+- 资源通过 Vigil 通用短时票据桥读取，卸载时撤销；插件不会删除或改写 Steam Workshop、旧版配置或用户个人壁纸文件。
+- 本地图片/视频可在设置页临时打开，使用浏览器对象 URL，不复制或删除源文件。
 
-## 运行环境和数据
+## 来源与许可
 
-- 依赖 Vigil Brain 的目录插件 API、Python 标准库和客户端通用插件前端 API；不需要额外 pip 包。
-- 场景实时渲染需要客户端提供本地场景渲染页（`plugins.sceneLiveUrl()`）。客户端版本过旧时插件会提示升级，并退回预览图。
-- 配置与扫描缓存保存在用户目录 `~/.vigil/wallpaper/`，壁纸素材由 Steam/用户 Workshop 目录管理。
-- 禁用或卸载不会删除用户配置、缓存或 Workshop 素材。
+渲染器源自 `elysia395/dsh-wallpaper-engine`，上游提交和 MIT 署名见 [UPSTREAM.md](UPSTREAM.md) 与 [LICENSE](LICENSE)。Vigil 适配代码由 Vigil 项目维护。
 
-## 安装
+## 安装与卸载
 
-在 Vigil 插件市场安装。客户端先校验 HTTPS ZIP 制品 SHA-256，再校验本 Manifest、协议、权限白名单和全部文件 SHA-256，然后使用 Brain 通用目录插件安装事务落盘。装完需要重启宿主（桌面版完全退出再开）。
-
-## 版本
-
-- 3.2.2：WE 的 `project.json` 把类型写成 `Scene`/`Video`（首字母大写），旧代码按小写比较，这批壁纸被当成未知类型、主文件记为 null，只画预览图；现在扫描、读配置、前端渲染三处统一归一为小写。
-- 3.2.1：场景壁纸改为挂载客户端本地渲染页（跨源 postMessage 控制 + 首帧回报 + 失败降级），配置保存不再按固定键白名单丢新设置项，新增场景适配与帧率。
-- 3.0.1：注册导航页声明 `after=market`，避免导航项被滚动区吞掉。
-- 3.0.0：恢复原版 Wallpaper Engine Brain 插件。
+从 Vigil 插件市场安装 `wallpaper` 4.0.0。安装后启用“壁纸”页面；卸载仅移除插件包和 v4 配置命名空间，不触碰用户壁纸素材。
