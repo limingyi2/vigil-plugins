@@ -24,7 +24,7 @@
         "wallpaper.media.read"
       ],
       "artifact": {
-        "url": "https://raw.githubusercontent.com/limingyi2/vigil-plugins/main/plugins/wallpaper/wallpaper-4.0.0.zip",
+        "url": "https://raw.githubusercontent.com/limingyi2/vigil-plugins/c21b4b70b9e9cdad4d56f76270cb762b34272efa/plugins/wallpaper/wallpaper-4.0.0.zip",
         "sha256": "66817f90119348c7e57c61a1c66f920e3f0572225506d1eaa252a46ea938c84c"
       },
       "updated": "2026-10-22"
