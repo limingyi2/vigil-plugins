@@ -4,8 +4,8 @@
   "plugins": [
     {
       "name": "wallpaper",
-      "desc": "独立 Wallpaper Engine 插件：Scene 实时 WebGL、粒子与 Shader、视频、网页、透明背景、毛玻璃和 Vigil 聊天界面适配。渲染器随插件发布，不依赖 DSH 内核。",
-      "version": "4.1.8",
+      "desc": "独立 Wallpaper Engine 插件：Scene 实时 WebGL、粒子与 Shader、视频、网页、透明背景、毛玻璃和 Vigil 聊天界面适配。自带三张内置动画壁纸（晨雾/星海/涟漪），没装 Wallpaper Engine 也能直接用。",
+      "version": "4.1.9",
       "author": "limingyi2",
       "tags": [
         "Wallpaper Engine",
