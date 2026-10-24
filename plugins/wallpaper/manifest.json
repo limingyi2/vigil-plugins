@@ -20,7 +20,7 @@
   "files": [
     {
       "path": "LICENSE.txt",
-      "sha256": "0e9771dccf317863c1eeae95034ce7aa771b8055507d1b5db35df77e69e414fa"
+      "sha256": "a116f28b94e928c3b22acc3346cbd29b3cb2fddd68f73be5c9b93d7626f20cf6"
     },
     {
       "path": "README.md",
@@ -28,7 +28,7 @@
     },
     {
       "path": "UPSTREAM.md",
-      "sha256": "cac7d6d9102239c5f0bdd9fe49500d35b89cd968fc71e1cefcecbcd60c99fbcf"
+      "sha256": "a2aef1d62b473cea7dcd301dada10682e24959914d4436aa49cee772dbc20f49"
     },
     {
       "path": "__init__.py",
