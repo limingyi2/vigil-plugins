@@ -1,7 +1,7 @@
 {
   "schema": "vigil.brain-plugin/v1",
   "name": "wallpaper",
-  "version": "4.1.5",
+  "version": "4.1.6",
   "entry": "__init__.py",
   "frontend": {
     "script": "frontend.js",
@@ -32,19 +32,19 @@
     },
     {
       "path": "__init__.py",
-      "sha256": "b0f9c025f0353bdee55b5011910f72220fd3d4077fb7e5289de2ecd06ca8d4f4"
+      "sha256": "9911efecdfae64ef641f3fcaedcc9a979d9bd9c963dd2b0d950ee6e6e52a51fb"
     },
     {
       "path": "frontend.css",
-      "sha256": "051f9232c88f873708a966aa5bdc6a880cc575cb0c101439586338730555de29"
+      "sha256": "d3d2b070992c9910a17170d411e11d06fa6063ef912eb077843459542c7344ea"
     },
     {
       "path": "frontend.js",
-      "sha256": "a8574c895bd4f98e493e85823ae0ab2adeb70901269cfbccfafda86346ed6570"
+      "sha256": "b58192871579d8ee7ae0a41e7dada1b4a2d77c3f5e47a74cbcb304a6859ebc35"
     },
     {
       "path": "version.json",
-      "sha256": "6e04d8a0ada1bd755ef166be78c63c827818501909a94eb2aecdf3f9dad6523a"
+      "sha256": "80182f9a21270a0ee49f57da74ae037fd4724948f05903db761fc1f5f71e45a0"
     }
   ],
   "dependencies": []
