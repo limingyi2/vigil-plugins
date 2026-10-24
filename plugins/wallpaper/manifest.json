@@ -32,19 +32,19 @@
     },
     {
       "path": "__init__.py",
-      "sha256": "9911efecdfae64ef641f3fcaedcc9a979d9bd9c963dd2b0d950ee6e6e52a51fb"
+      "sha256": "9f6a13c8b747249fcf4c7f555ad3d9f28bbe19c56fbcbb807d5e702c333d4772"
     },
     {
       "path": "frontend.css",
-      "sha256": "d3d2b070992c9910a17170d411e11d06fa6063ef912eb077843459542c7344ea"
+      "sha256": "0c68ea3784403ba06046b04e6a6acd8f98ca75d898c935929f38b644d4aeb607"
     },
     {
       "path": "frontend.js",
-      "sha256": "b58192871579d8ee7ae0a41e7dada1b4a2d77c3f5e47a74cbcb304a6859ebc35"
+      "sha256": "08a99c48dbfdc01fe726c628b12f3f52cad859564da39bcfde7418b47fbea88d"
     },
     {
       "path": "version.json",
-      "sha256": "80182f9a21270a0ee49f57da74ae037fd4724948f05903db761fc1f5f71e45a0"
+      "sha256": "b672c0105d30b7c9dc7b68792d06b888c3ff6ac69416c93cede985e29ed0e055"
     }
   ],
   "dependencies": []
