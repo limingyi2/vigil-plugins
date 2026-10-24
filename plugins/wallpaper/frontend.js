@@ -47,6 +47,16 @@
       return r.url;
     });
   };
+  // 渲染器文档必须经主进程挂到 ticket 化 loopback 服务上：blob:/data: 文档
+  // 会继承应用 CSP（frame-src / script-src）导致实时壁纸整个被拦。
+  const documentUrl = (name, html) => {
+    const bridge = window.vigil?.plugins;
+    if (!bridge || typeof bridge.documentUrl !== 'function') return Promise.reject(new Error('客户端过旧，请升级客户端后再使用实时壁纸'));
+    return Promise.resolve(bridge.documentUrl(name, html)).then((r) => {
+      if (!r || !r.ok || !r.url) throw new Error(r?.err || '渲染器文档不可用');
+      return r.url;
+    });
+  };
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const typeLabel = (type) => ({ scene: 'Scene', web: '网页', video: '视频', image: '图片', gif: 'GIF' }[type] || type || '未知');
   function mediaPath(item, file) {
@@ -60,9 +70,6 @@
     scrim.style.opacity = String(overlay);
     document.documentElement.style.setProperty('--vigil-wallpaper-blur', Math.max(0, Number(config.blur) || 0) + 'px');
     document.body.classList.toggle('vigil-wallpaper-active', !!config.enabled && !!active);
-    // The bundled Vigil UI still scopes persona and Agent surfaces to this
-    // compatibility class. Keep both names in sync until those styles migrate.
-    document.body.classList.toggle('vwp-active', !!config.enabled && !!active);
   }
   function ensureLayers() {
     root = document.getElementById('vigil-wallpaper-root') || document.createElement('div');
@@ -135,7 +142,7 @@
           node.src = src; node.style.objectFit = config.fit === 'contain' ? 'contain' : config.fit === 'stretch' ? 'fill' : 'cover'; stage.appendChild(node);
           if (item.type === 'video') node.play().catch(() => {});
         } else {
-          frame = document.createElement('iframe'); frame.title = 'Vigil Wallpaper Engine ' + typeLabel(item.type); frame.setAttribute('sandbox', 'allow-scripts'); frame.src = URL.createObjectURL(new Blob([frameDocument(item.type, src, config.fit)], { type: 'text/html' })); stage.appendChild(frame);
+          frame = document.createElement('iframe'); frame.title = 'Vigil Wallpaper Engine ' + typeLabel(item.type); frame.setAttribute('sandbox', 'allow-scripts'); frame.src = await documentUrl('wallpaper-renderer.html', frameDocument(item.type, src, config.fit)); stage.appendChild(frame);
           resizeObserver = new ResizeObserver(() => { try { frame.contentWindow?.postMessage({ vigilWallpaper: true, command: 'resize' }, '*'); } catch (_) {} }); resizeObserver.observe(stage);
           badge.textContent = '实时 ' + typeLabel(item.type); badge.hidden = false;
         }
@@ -193,7 +200,7 @@
   function onMessage(event) { if (!frame || event.source !== frame.contentWindow || !event.data?.vigilWallpaperV4) return; if (event.data.op === 'ready') { badge.textContent = '实时 ' + typeLabel(active?.type); badge.hidden = false; } if (event.data.op === 'error') { badge.textContent = '渲染错误：' + String(event.data.message || '未知错误').slice(0, 100); badge.hidden = false; } }
   function onVisibility() { if (!frame) return; frame.contentWindow?.postMessage({ vigilWallpaper: true, command: document.hidden ? 'pause' : 'resume' }, '*'); }
   function dispose() {
-    disposed = true; clearStage(); messageHandler && window.removeEventListener('message', messageHandler); visibilityHandler && document.removeEventListener('visibilitychange', visibilityHandler); objectUrls.forEach((url) => URL.revokeObjectURL(url)); objectUrls.clear(); locals = []; library = []; active = null; document.body.classList.remove('vigil-wallpaper-active', 'vwp-active'); document.documentElement.style.removeProperty('--vigil-wallpaper-blur'); root?.remove(); window.__vigilWallpaperV4Dispose = null; try { window.vigil?.plugins?.releaseResources?.(); } catch (_) {}
+    disposed = true; clearStage(); messageHandler && window.removeEventListener('message', messageHandler); visibilityHandler && document.removeEventListener('visibilitychange', visibilityHandler); objectUrls.forEach((url) => URL.revokeObjectURL(url)); objectUrls.clear(); locals = []; library = []; active = null; document.body.classList.remove('vigil-wallpaper-active'); document.documentElement.style.removeProperty('--vigil-wallpaper-blur'); root?.remove(); window.__vigilWallpaperV4Dispose = null; try { window.vigil?.plugins?.releaseResources?.(); } catch (_) {}
   }
   window.__vigilWallpaperV4Dispose = dispose;
   ensureLayers(); messageHandler = onMessage; window.addEventListener('message', messageHandler); visibilityHandler = onVisibility; document.addEventListener('visibilitychange', visibilityHandler);
