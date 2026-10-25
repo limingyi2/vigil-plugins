@@ -16,6 +16,7 @@
   let config = { ...DEFAULT };
   let videoPending = false;
   let videoPlaybackFailed = false;
+  let selectionGeneration = 0;
   // 上一轮的外观立刻顶上：配置要走云端链路（几十到几百毫秒），这期间若先按
   // "没开壁纸"渲染，整窗会先退回默认底色（看起来就是黑屏/白屏闪一下）。
   const CACHE_KEY = 'vigil.wallpaper.v4.appearance';
@@ -787,6 +788,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
     }
   }
   function setConfig(patch, remount) {
+    if (patch?.enabled === false) selectionGeneration += 1;
     config = { ...config, ...patch };
     applyAppearance();
     scheduleCarousel();
@@ -884,6 +886,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
   }
   function select(item) {
     if (!item) return;
+    const selection = ++selectionGeneration;
     // 引导条是"还没选过"才需要的；select 不重绘页面，所以这里手动收掉。
     document.querySelector('.vigil-wallpaper-hint')?.remove();
     const patch = { enabled: true, wallpaper_id: item.id, wallpaper_type: item.type, wallpaper_file: item.file || '' };
@@ -897,6 +900,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
     config = { ...config, ...patch };
     applyAppearance();
     mount(item).then((ok) => {
+      if (disposed || selection !== selectionGeneration) return;
       if (ok) {
         // Commit a video selection only after Chromium reports actual playback.
         api('POST', '/api/plugin/wallpaper/config', patch).then((r) => {
@@ -911,6 +915,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
       active = previousActive;
       applyAppearance();
     }).catch((error) => {
+      if (disposed || selection !== selectionGeneration) return;
       config = previousConfig;
       active = previousActive;
       applyAppearance();
@@ -1031,7 +1036,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
     }, 1000);
   }
   function dispose() {
-    disposed = true; clearStage(); if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; } messageHandler && window.removeEventListener('message', messageHandler); visibilityHandler && document.removeEventListener('visibilitychange', visibilityHandler); objectUrls.forEach((url) => URL.revokeObjectURL(url)); objectUrls.clear(); locals = []; library = []; active = null; document.body.classList.remove('vigil-wallpaper-active', 'vwp-active'); document.documentElement.style.removeProperty('--vigil-wallpaper-blur'); root?.remove(); badge?.remove(); window.__vigilWallpaperV4Dispose = null; try { window.vigil?.plugins?.releaseResources?.(); } catch (_) {}
+    disposed = true; selectionGeneration += 1; clearStage(); if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; } messageHandler && window.removeEventListener('message', messageHandler); visibilityHandler && document.removeEventListener('visibilitychange', visibilityHandler); objectUrls.forEach((url) => URL.revokeObjectURL(url)); objectUrls.clear(); locals = []; library = []; active = null; document.body.classList.remove('vigil-wallpaper-active', 'vwp-active'); document.documentElement.style.removeProperty('--vigil-wallpaper-blur'); root?.remove(); badge?.remove(); window.__vigilWallpaperV4Dispose = null; try { window.vigil?.plugins?.releaseResources?.(); } catch (_) {}
   }
   window.__vigilWallpaperV4Dispose = dispose;
   // 只读出口：外观契约测试与现场排查用（确认内置壁纸真的随包分发到了）

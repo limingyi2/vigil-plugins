@@ -78,6 +78,8 @@ test('video selection preserves the previous wallpaper until playback succeeds',
   const selectSource = source.slice(selectStart, selectEnd);
   assert.match(selectSource, /if \(item\.type !== 'video'\)\s*\{\s*active = item;/);
   assert.match(selectSource, /const previousActive = active;/);
+  assert.match(selectSource, /const selection = \+\+selectionGeneration;/);
+  assert.match(selectSource, /selection !== selectionGeneration/);
   assert.match(selectSource, /mount\(item\)\.then\(\(ok\) => \{/);
 });
 
