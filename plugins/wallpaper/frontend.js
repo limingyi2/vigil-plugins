@@ -14,6 +14,8 @@
     carousel_enabled: false, carousel_minutes: 30, carousel_shuffle: false };
   let disposed = false;
   let config = { ...DEFAULT };
+  let videoPending = false;
+  let videoPlaybackFailed = false;
   // 上一轮的外观立刻顶上：配置要走云端链路（几十到几百毫秒），这期间若先按
   // "没开壁纸"渲染，整窗会先退回默认底色（看起来就是黑屏/白屏闪一下）。
   const CACHE_KEY = 'vigil.wallpaper.v4.appearance';
@@ -426,6 +428,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
     badgeTimer = setTimeout(() => { badge.hidden = true; }, 8000);
   }
   let frame = null;
+  let videoNode = null;
   let generation = 0;
   let activeUrl = '';
   let objectUrls = new Set();
@@ -480,7 +483,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
     // 🔴 玻璃主题只跟"是否启用且选了壁纸"走，不等渲染器挂载完成。
     // 渲染要经过 配置→壁纸库→票据→解码 四步，把主题绑在 active 上会让整窗
     // 在每一步之间退回应用默认底色（黑屏闪一下的根因）。
-    const on = !!config.enabled && (!!active || !!config.wallpaper_id);
+    const on = !!config.enabled && (!!active || !!config.wallpaper_id)
+      && !(videoPending && !active) && !videoPlaybackFailed;
     document.body.classList.toggle('vigil-wallpaper-active', on);
     // The bundled Vigil UI still scopes persona and Agent surfaces to this
     // compatibility class. Keep both names in sync until those styles migrate.
@@ -512,14 +516,70 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
     generation += 1;
     if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
     if (frame) { try { frame.contentWindow?.postMessage({ vigilWallpaper: true, command: 'destroy' }, '*'); } catch (_) {} }
+    if (videoNode) { try { videoNode.pause(); videoNode.removeAttribute('src'); videoNode.load(); } catch (_) {} }
     if (stage) {
       stage.querySelectorAll('video').forEach((v) => { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (_) {} });
       stage.replaceChildren();
     }
-    frame = null; activeUrl = '';
+    frame = null; videoNode = null; activeUrl = '';
     if (badge) { clearTimeout(badgeTimer); badge.hidden = true; }
     if (readyWatchdog) { clearTimeout(readyWatchdog); readyWatchdog = null; }
     gpuDiag = null;
+  }
+  // A hidden Electron window may suspend <video> without dispatching an error.
+  // Wait for a real playing event and retry muted when Chromium blocks audio autoplay.
+  // VIDEO_PLAYBACK_HELPER_START
+  function startVideoPlayback(node, timeoutMs = 12000) {
+    return new Promise((resolve) => {
+      if (!node.paused && node.readyState >= 2) {
+        resolve({ ok: true, error: null, mutedFallback: false });
+        return;
+      }
+      let settled = false;
+      let mutedFallback = false;
+      let playError = null;
+      let timer = null;
+      const finish = (ok, error) => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        node.removeEventListener('playing', onPlaying);
+        node.removeEventListener('error', onError);
+        resolve({ ok, error: error || playError || node.error || null, mutedFallback });
+      };
+      const onPlaying = () => finish(true);
+      const onError = () => finish(false, node.error || new Error('视频解码或读取失败'));
+      node.addEventListener('playing', onPlaying);
+      node.addEventListener('error', onError);
+      timer = setTimeout(() => finish(false, new Error('视频在限定时间内没有开始播放')), timeoutMs);
+
+      Promise.resolve().then(() => node.play()).catch(async (error) => {
+        playError = error;
+        if (!node.muted) {
+          mutedFallback = true;
+          node.muted = true;
+          try {
+            await node.play();
+            if (node.readyState >= 2 && !node.paused) finish(true);
+            return;
+          } catch (retryError) {
+            playError = retryError;
+          }
+        }
+        finish(false, playError);
+      }).then(() => {
+        if (!settled && node.readyState >= 2 && !node.paused) finish(true);
+      }).catch((error) => finish(false, error));
+    });
+  }
+  // VIDEO_PLAYBACK_HELPER_END
+  function videoFailureMessage(node, error) {
+    const code = Number(node?.error?.code) || 0;
+    const detail = code === 3 ? '视频解码失败，可能是当前系统不支持该编码（建议 H.264 MP4 或 VP8/VP9 WebM）'
+      : code === 4 ? '浏览器不支持该视频格式或编码'
+      : code === 2 ? '读取视频文件失败'
+      : String(error?.message || error || '播放未启动').slice(0, 100);
+    return '视频壁纸无法播放：' + detail;
   }
   function frameDocument(type, src, fit, sceneFile) {
     // 🔴 mediaBase 不能带尾斜杠：渲染器用 `mediaBase + '/' + src + '/...'`
@@ -564,7 +624,17 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
     return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas,iframe,video,img{display:block;width:100%;height:100%;border:0}</style></head><body><script type="module">' + renderer + '</script><script>' + control + '</script></body></html>';
   }
   async function mount(item) {
-    clearStage();
+    // Keep the last known-good surface alive while a new video fetches and
+    // decodes. Clearing it before `play()` resolves turns an unsupported codec
+    // or blocked autoplay into a full-window black screen.
+    const preserveStage = !!(item?.type === 'video' && stage?.children?.length);
+    if (preserveStage) {
+      generation += 1;
+      if (readyWatchdog) { clearTimeout(readyWatchdog); readyWatchdog = null; }
+      stage.querySelectorAll('[data-vigil-wallpaper-pending]').forEach((node) => node.remove());
+    } else {
+      clearStage();
+    }
     const mine = generation;
     if (!item || disposed || !config.enabled) {
       applyAppearance();
@@ -576,7 +646,57 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
       }
       return;
     }
-    active = item;
+    if (!preserveStage && item.type !== 'video') active = item;
+    videoPending = !active && item.type === 'video';
+    videoPlaybackFailed = false;
+    applyAppearance();
+    const finishVideo = async (node) => {
+      node.dataset.vigilWallpaperPending = '1';
+      node.style.opacity = '0';
+      stage.appendChild(node);
+      if (item.preview) {
+        if (/^(data:|blob:|https?:)/i.test(item.preview)) {
+          node.poster = item.preview;
+        } else {
+          resourceUrl(mediaPath(item, item.preview)).then((url) => {
+            if (mine === generation && node.isConnected) node.poster = url;
+          }).catch(() => {});
+        }
+      }
+      const playback = await startVideoPlayback(node);
+      if (mine !== generation || disposed) { node.remove(); return false; }
+      if (!playback.ok) {
+        node.remove();
+        videoPending = false;
+        if (!preserveStage) {
+          active = null;
+          videoPlaybackFailed = true;
+        }
+        applyAppearance();
+        showBadge(videoFailureMessage(node, playback.error));
+        return false;
+      }
+      if (preserveStage) {
+        if (frame) { try { frame.contentWindow?.postMessage({ vigilWallpaper: true, command: 'destroy' }, '*'); } catch (_) {} }
+        if (videoNode && videoNode !== node) {
+          try { videoNode.pause(); videoNode.removeAttribute('src'); videoNode.load(); } catch (_) {}
+        }
+        if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
+        if (readyWatchdog) { clearTimeout(readyWatchdog); readyWatchdog = null; }
+        stage.replaceChildren(node);
+        frame = null;
+      }
+      delete node.dataset.vigilWallpaperPending;
+      node.style.opacity = '';
+      videoNode = node;
+      active = item;
+      videoPending = false;
+      videoPlaybackFailed = false;
+      activeUrl = node.currentSrc || node.src || '';
+      applyAppearance();
+      if (playback.mutedFallback) showBadge('视频已播放；浏览器限制自动播放声音，已临时静音');
+      return true;
+    };
     try {
       if (item.builtin) {
         // 内置壁纸是我们自己的单文件页面：直接进 iframe，不套 WE 渲染器，
@@ -598,23 +718,45 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
         resizeObserver.observe(stage);
         showBadge('内置 ' + item.title);
       } else if (item.localUrl) {
-        activeUrl = item.localUrl; const node = item.type === 'video' ? document.createElement('video') : document.createElement('img');
-        node.autoplay = item.type === 'video'; node.loop = item.type === 'video'; node.muted = true; node.playsInline = true; node.src = item.localUrl;
-        node.addEventListener('error', () => { if (mine === generation) { showBadge('本地媒体加载失败：' + item.file); } });
-        stage.appendChild(node);
-        if (item.type === 'video') node.play().catch(() => {});
-        showBadge('本地 ' + typeLabel(item.type));
+        const node = item.type === 'video' ? document.createElement('video') : document.createElement('img');
+        if (item.type === 'video') {
+          node.autoplay = true; node.loop = true; node.muted = config.muted !== false;
+          node.playsInline = true; node.preload = 'auto'; node.src = item.localUrl;
+          node.addEventListener('error', () => { if (mine === generation) showBadge(videoFailureMessage(node)); });
+          if (!await finishVideo(node)) return false;
+        } else {
+          activeUrl = item.localUrl;
+          node.src = item.localUrl;
+          node.addEventListener('error', () => { if (mine === generation) showBadge('本地媒体加载失败：' + item.file); });
+          stage.appendChild(node);
+          active = item;
+          videoPending = false;
+          videoPlaybackFailed = false;
+          showBadge('本地 ' + typeLabel(item.type));
+        }
       } else {
         const file = item.file || (item.type === 'scene' ? 'scene.pkg' : item.type === 'web' ? 'index.html' : item.preview);
         const src = await resourceUrl(mediaPath(item, file));
         if (mine !== generation || disposed) return;
-        activeUrl = src;
+        if (item.type !== 'video') activeUrl = src;
         if (item.type === 'video' || item.type === 'image' || item.type === 'gif') {
           const node = item.type === 'video' ? document.createElement('video') : document.createElement('img');
-          if (item.type === 'video') { node.autoplay = true; node.loop = true; node.muted = config.muted !== false; node.playsInline = true; node.preload = 'auto'; }
-          node.addEventListener('error', () => { if (mine === generation) { showBadge('媒体加载失败：' + item.file); } });
-          node.src = src; node.style.objectFit = config.fit === 'contain' ? 'contain' : config.fit === 'stretch' ? 'fill' : 'cover'; stage.appendChild(node);
-          if (item.type === 'video') node.play().catch(() => {});
+          if (item.type === 'video') {
+            node.autoplay = true; node.loop = true; node.muted = config.muted !== false;
+            node.playsInline = true; node.preload = 'auto';
+            node.addEventListener('error', () => { if (mine === generation) showBadge(videoFailureMessage(node)); });
+            node.src = src;
+            node.style.objectFit = config.fit === 'contain' ? 'contain' : config.fit === 'stretch' ? 'fill' : 'cover';
+            if (!await finishVideo(node)) return false;
+          } else {
+            node.addEventListener('error', () => { if (mine === generation) showBadge('媒体加载失败：' + item.file); });
+            node.src = src;
+            node.style.objectFit = config.fit === 'contain' ? 'contain' : config.fit === 'stretch' ? 'fill' : 'cover';
+            stage.appendChild(node);
+            active = item;
+            videoPending = false;
+            videoPlaybackFailed = false;
+          }
         } else {
           frame = document.createElement('iframe'); frame.title = 'Vigil Wallpaper Engine ' + typeLabel(item.type); frame.setAttribute('sandbox', 'allow-scripts allow-same-origin'); frame.src = await documentUrl('wallpaper-renderer.html', frameDocument(item.type, src, config.fit, file)); stage.appendChild(frame);
           resizeObserver = new ResizeObserver(() => { try { frame.contentWindow?.postMessage({ vigilWallpaper: true, command: 'resize' }, '*'); } catch (_) {} }); resizeObserver.observe(stage);
@@ -635,11 +777,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
         }
       }
       applyAppearance();
+      return true;
     } catch (e) {
       if (mine !== generation) return;
       showBadge('壁纸加载失败：' + String(e?.message || e).slice(0, 120));
       console.error('[wallpaper v4]', e);
       applyAppearance();
+      return false;
     }
   }
   function setConfig(patch, remount) {
@@ -740,10 +884,38 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
   }
   function select(item) {
     if (!item) return;
-    active = item;
     // 引导条是"还没选过"才需要的；select 不重绘页面，所以这里手动收掉。
     document.querySelector('.vigil-wallpaper-hint')?.remove();
-    setConfig({ enabled: true, wallpaper_id: item.id, wallpaper_type: item.type, wallpaper_file: item.file || '' }, true);
+    const patch = { enabled: true, wallpaper_id: item.id, wallpaper_type: item.type, wallpaper_file: item.file || '' };
+    if (item.type !== 'video') {
+      active = item;
+      setConfig(patch, true);
+      return;
+    }
+    const previousConfig = { ...config };
+    const previousActive = active;
+    config = { ...config, ...patch };
+    applyAppearance();
+    mount(item).then((ok) => {
+      if (ok) {
+        // Commit a video selection only after Chromium reports actual playback.
+        api('POST', '/api/plugin/wallpaper/config', patch).then((r) => {
+          if (r?.config) config = { ...config, ...r.config };
+          applyAppearance();
+          scheduleCarousel();
+        }).catch(() => {});
+        scheduleCarousel();
+        return;
+      }
+      config = previousConfig;
+      active = previousActive;
+      applyAppearance();
+    }).catch((error) => {
+      config = previousConfig;
+      active = previousActive;
+      applyAppearance();
+      showBadge('视频壁纸切换失败：' + String(error?.message || error).slice(0, 100));
+    });
   }
   function localFile(file) {
     if (!file) return;
@@ -833,8 +1005,20 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0809}
   // Windows 上窗口被完全遮挡后 WebGL 上下文可能被丢弃，回来时画布变白/变黑
   //（用户看到“壁纸被覆盖”）。恢复可见时先 ping 渲染器，无应答就整体重挂。
   function onVisibility() {
+    if (document.hidden) {
+      clearTimeout(probeTimer);
+      if (videoNode) { try { videoNode.pause(); } catch (_) {} }
+      if (frame) frame.contentWindow?.postMessage({ vigilWallpaper: true, command: 'pause' }, '*');
+      return;
+    }
+    if (videoNode && active?.type === 'video') {
+      startVideoPlayback(videoNode).then((playback) => {
+        if (!playback.ok && !disposed) showBadge(videoFailureMessage(videoNode, playback.error));
+      }).catch((error) => {
+        if (!disposed) showBadge(videoFailureMessage(videoNode, error));
+      });
+    }
     if (!frame) return;
-    if (document.hidden) { clearTimeout(probeTimer); frame.contentWindow?.postMessage({ vigilWallpaper: true, command: 'pause' }, '*'); return; }
     frame.contentWindow?.postMessage({ vigilWallpaper: true, command: 'resume' }, '*');
     const live = active;
     if (!live || (live.type !== 'scene' && live.type !== 'web')) return;

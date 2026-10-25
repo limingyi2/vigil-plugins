@@ -1,7 +1,7 @@
 {
   "schema": "vigil.brain-plugin/v1",
   "name": "wallpaper",
-  "version": "4.2.0",
+  "version": "4.2.1",
   "entry": "__init__.py",
   "frontend": {
     "script": "frontend.js",
