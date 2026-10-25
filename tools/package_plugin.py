@@ -34,6 +34,10 @@ def build(name, ref):
         for n, b in sorted(payload.items()):
             info = zipfile.ZipInfo(name + '/' + n, (2026, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
+            # Python defaults this field from the build host OS (Unix=3,
+            # Windows=0), which changes ZIP bytes and the published SHA-256.
+            # Pin the creator system so local and GitHub Actions builds match.
+            info.create_system = 3
             info.external_attr = 0o100644 << 16
             archive.writestr(info, b)
     package = buffer.getvalue()
