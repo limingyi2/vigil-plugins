@@ -5,7 +5,7 @@
     {
       "name": "wallpaper",
       "desc": "独立 Wallpaper Engine 插件：Scene 实时 WebGL、粒子与 Shader、视频、网页、透明背景、毛玻璃和 Vigil 聊天界面适配。自带三张内置动画壁纸（晨雾/星海/涟漪），另附 5 张在线动态壁纸，点一下按需下载并校验 SHA-256。没装 Wallpaper Engine 也能直接用。",
-      "version": "4.2.0",
+      "version": "4.2.1",
       "author": "limingyi2",
       "tags": [
         "Wallpaper Engine",
@@ -24,8 +24,8 @@
         "wallpaper.media.read"
       ],
       "artifact": {
-        "url": "https://raw.githubusercontent.com/limingyi2/vigil-plugins/fc26fa2cac38ee05472aad9f03f8455d69c206ed/plugins/wallpaper/wallpaper-4.2.0.zip",
-        "sha256": "6cdb090131b77e4e6cab7a4476e2da5549cefc822f2ccc9b52302dab53b15edb"
+        "url": "https://raw.githubusercontent.com/limingyi2/vigil-plugins/059a5884b0ac2afd37750031afed72afd2f6ba65/plugins/wallpaper/wallpaper-4.2.1.zip",
+        "sha256": "ea2d3b110667a65d43afa41c535172c0d8a3ca3464f1b1fbb9da312abb8776d8"
       },
       "updated": "2026-10-25"
     }
