@@ -24,7 +24,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "1d227663fbf797c4ede96abb1b0f109eae14020704eaeeae2ce957d2b1ad8da6"
+      "sha256": "ece15409915145d39981e212aceda3ca7bdf264d9991968c31f7d404a9519d43"
     },
     {
       "path": "UPSTREAM.md",
@@ -32,7 +32,7 @@
     },
     {
       "path": "__init__.py",
-      "sha256": "444a588624732044785fab92ca05cde0b0ee4525ca57e64f91d6d4ddd672e788"
+      "sha256": "41a71817eadc8fec73161ced781911dafd3d6b42c9afea3aae776c379c51f7a8"
     },
     {
       "path": "cloud-walls.json",
@@ -44,11 +44,11 @@
     },
     {
       "path": "frontend.js",
-      "sha256": "90411b20def1c08824bd40ddfdc99961b229d247664fcd12c067f707b6135f26"
+      "sha256": "53e5df20c2b2492e3de9c18981867f4f6a1133ca854dd8b4ba9dda3e3601203e"
     },
     {
       "path": "version.json",
-      "sha256": "5654bc638bcf1abf0fcb133d98f9ecf48e10399f1ff166f48e2bd2f2c91c0f55"
+      "sha256": "26002a0c194ebaa0ad9db4b4ed913f8d1d3b56da822321a3e7c14e118fae44e3"
     }
   ],
   "dependencies": []
